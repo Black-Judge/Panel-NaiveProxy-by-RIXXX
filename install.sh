@@ -111,6 +111,16 @@ echo ""
 # ── Б1. needrestart фикс + обновление системы ──────────────────────────
 log_step "[1/14] Обновление системы..."
 
+# Останавливаем unattended-upgrades — главная причина зависания apt lock
+systemctl stop unattended-upgrades 2>/dev/null || true
+systemctl disable unattended-upgrades 2>/dev/null || true
+pkill -9 unattended-upgrades 2>/dev/null || true
+sleep 2
+
+# Снимаем dpkg/apt lock-файлы если остались от предыдущего apt
+rm -f /var/lib/dpkg/lock-frontend       /var/lib/dpkg/lock       /var/cache/apt/archives/lock       /var/lib/apt/lists/lock 2>/dev/null || true
+dpkg --configure -a >/dev/null 2>&1 || true
+
 # Фикс needrestart — главная причина зависания на Ubuntu 22.04+/24.04
 if [ -f /etc/needrestart/needrestart.conf ]; then
   sed -i "s/#\$nrconf{restart} = 'i';/\$nrconf{restart} = 'a';/" \
@@ -124,11 +134,13 @@ DEBIAN_FRONTEND=noninteractive apt-get update -y -qq 2>/dev/null || true
 
 DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -qq \
   -o Dpkg::Options::="--force-confdef" \
-  -o Dpkg::Options::="--force-confold" 2>/dev/null || true
+  -o Dpkg::Options::="--force-confold" \
+  -o DPkg::Lock::Timeout=120 2>/dev/null || true
 
 DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
   -o Dpkg::Options::="--force-confdef" \
   -o Dpkg::Options::="--force-confold" \
+  -o DPkg::Lock::Timeout=120 \
   curl wget git openssl ufw build-essential 2>/dev/null || true
 
 log_ok "Система обновлена"
@@ -379,7 +391,7 @@ fi
 cd "${PANEL_DIR}/panel"
 npm install --omit=dev 2>&1 | grep -v "^npm warn" | tail -3 || true
 mkdir -p "${PANEL_DIR}/panel/data"
-chmod +x "${PANEL_DIR}/panel/scripts/install_naiveproxy.sh" 2>/dev/null || true
+# scripts/install_naiveproxy.sh устанавливается позже через git clone
 
 log_ok "Панель загружена в ${PANEL_DIR}"
 

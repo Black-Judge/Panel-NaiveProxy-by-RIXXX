@@ -31,6 +31,19 @@ step 1
 log "▶ Обновление системы и установка зависимостей..."
 # ══════════════════════════════════════════════════════
 
+# Останавливаем unattended-upgrades — главная причина зависания apt lock
+systemctl stop unattended-upgrades 2>/dev/null || true
+systemctl disable unattended-upgrades 2>/dev/null || true
+pkill -9 unattended-upgrades 2>/dev/null || true
+sleep 2
+
+# Снимаем dpkg/apt lock-файлы если остались
+rm -f /var/lib/dpkg/lock-frontend \
+      /var/lib/dpkg/lock \
+      /var/cache/apt/archives/lock \
+      /var/lib/apt/lists/lock 2>/dev/null || true
+dpkg --configure -a >/dev/null 2>&1 || true
+
 # Фикс needrestart — главная причина зависания на Ubuntu 22.04+/24.04
 if [ -f /etc/needrestart/needrestart.conf ]; then
   sed -i "s/#\$nrconf{restart} = 'i';/\$nrconf{restart} = 'a';/" \
@@ -39,16 +52,17 @@ if [ -f /etc/needrestart/needrestart.conf ]; then
     /etc/needrestart/needrestart.conf 2>/dev/null || true
 fi
 DEBIAN_FRONTEND=noninteractive apt-get update -y -qq \
-  -o Dpkg::Options::="--force-confdef" \
-  -o Dpkg::Options::="--force-confold" 2>/dev/null || true
+  -o DPkg::Lock::Timeout=120 2>/dev/null || true
 
 DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -qq \
   -o Dpkg::Options::="--force-confdef" \
-  -o Dpkg::Options::="--force-confold" 2>/dev/null || true
+  -o Dpkg::Options::="--force-confold" \
+  -o DPkg::Lock::Timeout=120 2>/dev/null || true
 
 DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
   -o Dpkg::Options::="--force-confdef" \
   -o Dpkg::Options::="--force-confold" \
+  -o DPkg::Lock::Timeout=120 \
   curl wget git openssl ufw build-essential 2>/dev/null || true
 
 log "✅ Система обновлена"
