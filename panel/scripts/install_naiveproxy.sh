@@ -31,21 +31,25 @@ step 1
 log "▶ Обновление системы и установка зависимостей..."
 # ══════════════════════════════════════════════════════
 
-# Принудительно некинтерактивно, подавляем needrestart и grub prompts
-apt-get update -y \
+# Фикс needrestart — главная причина зависания на Ubuntu 22.04+/24.04
+if [ -f /etc/needrestart/needrestart.conf ]; then
+  sed -i "s/#\$nrconf{restart} = 'i';/\$nrconf{restart} = 'a';/" \
+    /etc/needrestart/needrestart.conf 2>/dev/null || true
+  sed -i "s/\$nrconf{restart} = 'i';/\$nrconf{restart} = 'a';/" \
+    /etc/needrestart/needrestart.conf 2>/dev/null || true
+fi
+DEBIAN_FRONTEND=noninteractive apt-get update -y -qq \
   -o Dpkg::Options::="--force-confdef" \
-  -o Dpkg::Options::="--force-confold" \
-  -q 2>&1 | tail -2
+  -o Dpkg::Options::="--force-confold" 2>/dev/null || true
 
-apt-get upgrade -y \
+DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -qq \
   -o Dpkg::Options::="--force-confdef" \
-  -o Dpkg::Options::="--force-confold" \
-  -q 2>&1 | tail -2
+  -o Dpkg::Options::="--force-confold" 2>/dev/null || true
 
-apt-get install -y -q \
+DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
   -o Dpkg::Options::="--force-confdef" \
   -o Dpkg::Options::="--force-confold" \
-  curl wget git openssl ufw 2>&1 | tail -2
+  curl wget git openssl ufw build-essential 2>/dev/null || true
 
 log "✅ Система обновлена"
 
