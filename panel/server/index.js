@@ -5,7 +5,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const http = require('http');
 const WebSocket = require('ws');
-const { spawn } = require('child_process');
+const { spawn, exec } = require('child_process'); // Добавлен exec для надежной работы с systemd
 const fs = require('fs');
 const path = require('path');
 
@@ -58,11 +58,9 @@ function saveConfig(config) {
 
 function loadUsers() {
   if (!fs.existsSync(USERS_FILE)) {
-    // Читаем креды из окружения. Если их нет (запустили руками), ставим дефолт
     const initialUser = process.env.ADMIN_USER || 'admin';
     const initialPass = process.env.ADMIN_PASS || 'admin';
 
-    // Используем динамический ключ объекта (логин)
     const defaultUsers = {
       [initialUser]: {
         password: bcrypt.hashSync(initialPass, 10),
@@ -130,7 +128,6 @@ app.get('/api/me', requireAuth, (req, res) => {
 // ─────────────────────────────────────────────
 app.get('/api/config', requireAuth, (req, res) => {
   const config = loadConfig();
-  // Don't send passwords
   const safe = { ...config };
   res.json(safe);
 });
@@ -151,7 +148,6 @@ app.post('/api/config/change-password', requireAuth, (req, res) => {
   if (!bcrypt.compareSync(currentPassword, user.password)) {
     return res.json({ success: false, message: 'Текущий пароль неверен' });
   }
-  // Hash and save new password
   users[req.session.username].password = bcrypt.hashSync(newPassword, 10);
   saveUsers(users);
   res.json({ success: true, message: 'Пароль успешно изменён' });
@@ -173,7 +169,6 @@ app.post('/api/proxy-users/add', requireAuth, (req, res) => {
   const config = loadConfig();
   if (!config.proxyUsers) config.proxyUsers = [];
   
-  // Check duplicate
   if (config.proxyUsers.find(u => u.username === username)) {
     return res.json({ success: false, message: 'Пользователь уже существует' });
   }
@@ -181,7 +176,6 @@ app.post('/api/proxy-users/add', requireAuth, (req, res) => {
   config.proxyUsers.push({ username, password, createdAt: new Date().toISOString() });
   saveConfig(config);
   
-  // If installed, update Caddyfile
   if (config.installed) {
     updateCaddyfile(config, res, () => {
       res.json({ success: true, link: `naive+https://${username}:${password}@${config.domain}:443` });
@@ -211,7 +205,7 @@ app.delete('/api/proxy-users/:username', requireAuth, (req, res) => {
 });
 
 // ─────────────────────────────────────────────
-//  SERVER STATUS
+//  SERVER STATUS (ИСПОЛЬЗУЕТСЯ НАДЕЖНЫЙ EXEC)
 // ─────────────────────────────────────────────
 app.get('/api/status', requireAuth, (req, res) => {
   const config = loadConfig();
@@ -219,11 +213,8 @@ app.get('/api/status', requireAuth, (req, res) => {
     return res.json({ installed: false, status: 'not_installed' });
   }
   
-  const child = spawn('systemctl', ['is-active', 'caddy']);
-  let output = '';
-  child.stdout.on('data', d => output += d.toString().trim());
-  child.on('close', () => {
-    const running = output.trim() === 'active';
+  exec('systemctl is-active caddy', (error, stdout) => {
+    const running = stdout.trim() === 'active';
     res.json({
       installed: true,
       status: running ? 'running' : 'stopped',
@@ -233,22 +224,23 @@ app.get('/api/status', requireAuth, (req, res) => {
       usersCount: (config.proxyUsers || []).length
     });
   });
-  child.on('error', () => {
-    res.json({ installed: config.installed, status: 'unknown', domain: config.domain });
-  });
 });
 
 app.post('/api/service/:action', requireAuth, (req, res) => {
   const { action } = req.params;
+  
+  // Жесткая валидация для защиты от Command Injection
   if (!['start', 'stop', 'restart'].includes(action)) {
     return res.status(400).json({ error: 'Invalid action' });
   }
-  const child = spawn('systemctl', [action, 'caddy']);
-  child.on('close', (code) => {
-    res.json({ success: code === 0, message: code === 0 ? `Caddy ${action} выполнен` : 'Ошибка управления сервисом' });
-  });
-  child.on('error', () => {
-    res.json({ success: false, message: 'systemctl недоступен (вы не на сервере?)' });
+  
+  exec(`systemctl ${action} caddy`, (error, stdout, stderr) => {
+    if (error) {
+      console.error(`[Systemctl Error]: ${stderr || error.message}`);
+      res.json({ success: false, message: `Ошибка выполнения: ${action}` });
+    } else {
+      res.json({ success: true, message: `Команда ${action} успешно выполнена` });
+    }
   });
 });
 
@@ -303,15 +295,14 @@ ${basicAuthLines}
   try {
     fs.writeFileSync('/etc/caddy/Caddyfile', caddyfileContent, 'utf8');
   } catch (e) {
-    // Not running as root or Caddy not installed — skip silently
+    console.error("Ошибка записи Caddyfile:", e);
   }
 
-  // Reload Caddy to apply new config
-  const reload = spawn('bash', ['-c',
-    'caddy reload --config /etc/caddy/Caddyfile 2>/dev/null || systemctl restart caddy 2>/dev/null || true'
-  ]);
-  reload.on('close', () => { if (callback) callback(); });
-  reload.on('error', () => { if (callback) callback(); });
+  // Надежная перезагрузка конфига через systemd
+  exec('systemctl reload-or-restart caddy', (error) => {
+    if (error) console.error("Ошибка применения конфига Caddy:", error);
+    if (callback) callback();
+  });
 }
 
 function handleInstall(ws, data) {
@@ -328,19 +319,14 @@ function handleInstall(ws, data) {
   config.email = email;
   if (!config.proxyUsers) config.proxyUsers = [];
   
-  // Add first proxy user if not exists
   const existingUser = config.proxyUsers.find(u => u.username === adminLogin);
   if (!existingUser) {
     config.proxyUsers.push({ username: adminLogin, password: adminPassword, createdAt: new Date().toISOString() });
   }
   saveConfig(config);
 
-  // Get server IP
-  const getIp = spawn('bash', ['-c', "curl -4 -s ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}'"]);
-  let serverIp = '';
-  getIp.stdout.on('data', d => serverIp += d.toString().trim());
-  getIp.on('close', () => {
-    config.serverIp = serverIp;
+  exec("curl -4 -s --max-time 3 ipv4.icanhazip.com 2>/dev/null || hostname -I | awk '{print $1}'", (err, stdout) => {
+    config.serverIp = stdout.trim();
     saveConfig(config);
   });
 
