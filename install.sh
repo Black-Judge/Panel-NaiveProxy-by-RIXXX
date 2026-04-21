@@ -37,7 +37,7 @@ log_info() { echo -e "   ${BLUE}$1${RESET}"; }
 if [[ $EUID -ne 0 ]]; then log_err "Запускайте скрипт от root (sudo)"; exit 1; fi
 if ! command -v apt-get &>/dev/null; then log_err "Только Debian/Ubuntu"; exit 1; fi
 
-# Ускоренное определение IP-адреса (таймаут 2 секунды)
+# Ускоренное определение IP-адреса
 SERVER_IP=$(curl -4 -s --max-time 2 ipv4.icanhazip.com 2>/dev/null || curl -4 -s --max-time 2 api.ipify.org 2>/dev/null || true)
 if [[ -z "$SERVER_IP" || "$SERVER_IP" == *" "* ]]; then
     SERVER_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
@@ -77,7 +77,7 @@ rebuild_caddyfile() {
         printf '    hide_ip\n    hide_via\n    probe_resistance\n  }\n\n'
         printf '  root * /var/www/html\n  file_server\n}\n\n'
 
-        # Блок панели (если выбран доступ через Caddy)
+        # Блок панели
         if [[ "$acc_mode" == "2" && -n "$p_domain" ]]; then
             printf '%s {\n' "$p_domain"
             if [[ -f "/etc/letsencrypt/live/$p_domain/fullchain.pem" ]]; then
@@ -90,7 +90,6 @@ rebuild_caddyfile() {
         fi
     } > /etc/caddy/Caddyfile
 
-    # Надежная перезагрузка (reload или restart если упал)
     caddy reload --config /etc/caddy/Caddyfile >/dev/null 2>&1 || systemctl restart caddy >/dev/null 2>&1
 }
 
@@ -109,8 +108,9 @@ if [[ -d "$PANEL_DIR" && -f "${PANEL_DIR}/panel/data/config.json" ]]; then
         echo -e "Выберите действие:"
         echo -e "  ${CYAN}1)${RESET} 👥 Управление пользователями (${BOLD}${user_count}${RESET} шт.)"
         echo -e "  ${CYAN}2)${RESET} ⚙️ Управление сервисами и логи (Caddy & PM2)"
-        echo -e "  ${CYAN}3)${RESET} ⬆ Обновить панель управления (GitHub Pull)"
-        echo -e "  ${RED}4)${RESET} 🗑 Чистое удаление (Uninstall)"
+        echo -e "  ${YELLOW}3)${RESET} 🔒 Аудит SSL сертификатов и задач обновления"
+        echo -e "  ${CYAN}4)${RESET} ⬆ Обновить панель управления (GitHub Pull)"
+        echo -e "  ${RED}5)${RESET} 🗑 Чистое удаление (Uninstall)"
         echo -e "  ${CYAN}0)${RESET} Выход"
         echo ""
         read -rp "Ваш выбор: " menu_choice
@@ -262,6 +262,44 @@ if [[ -d "$PANEL_DIR" && -f "${PANEL_DIR}/panel/data/config.json" ]]; then
                 done
                 ;;
             3)
+                clear
+                echo -e "${PURPLE}${BOLD}╔══════════════════════════════════════════════════════════╗${RESET}"
+                echo -e "${PURPLE}${BOLD}║              Аудит SSL сертификатов                      ║${RESET}"
+                echo -e "${PURPLE}${BOLD}╚══════════════════════════════════════════════════════════╝${RESET}\n"
+                
+                echo -e "${CYAN}[1] Сертификаты Caddy (Автоматические):${RESET}"
+                CADDY_CERTS=$(find /root/.local/share/caddy/certificates /var/lib/caddy/certificates -type f -name "*.crt" 2>/dev/null)
+                if [[ -n "$CADDY_CERTS" ]]; then
+                    echo "$CADDY_CERTS" | while read -r cert; do
+                        domain=$(basename $(dirname "$cert"))
+                        echo -e "  ${GREEN}✅ Найден:${RESET} $domain"
+                        openssl x509 -enddate -noout -in "$cert" | sed 's/notAfter=/     Действителен до: /'
+                    done
+                else
+                    echo -e "  ${YELLOW}Нет активных сертификатов Caddy${RESET}"
+                fi
+
+                echo -e "\n${CYAN}[2] Сертификаты Certbot (Ручные):${RESET}"
+                if command -v certbot &>/dev/null; then
+                    certbot certificates 2>/dev/null | grep -E "Certificate Name|Expiry Date|Domains" || echo -e "  ${YELLOW}Сертификатов нет${RESET}"
+                else
+                    echo -e "  ${YELLOW}Утилита Certbot не установлена (Используется только Caddy)${RESET}"
+                fi
+
+                echo -e "\n${CYAN}[3] Задачи автоматического обновления:${RESET}"
+                echo -e "  ${BOLD}--- Systemd Timers (Certbot/Acme) ---${RESET}"
+                systemctl list-timers | grep -E "certbot|acme" || echo "  Нет systemd таймеров для SSL"
+                echo -e "  ${BOLD}--- Cron Jobs ---${RESET}"
+                crontab -l 2>/dev/null | grep -E "certbot|acme" || echo "  Нет cron задач для SSL"
+
+                echo -e "\n${PURPLE}💡 КАК РАБОТАЕТ CADDY:${RESET}"
+                echo -e "Caddy обновляет свои сертификаты САМ во время работы сервера."
+                echo -e "Ему НЕ НУЖНЫ cron-задачи или таймеры. Он держит обновление в оперативной памяти."
+                echo -e "Главное правило: ${BOLD}никогда не останавливайте сервис Caddy надолго.${RESET}\n"
+
+                read -rp "Нажмите Enter для возврата..."
+                ;;
+            4)
                 log_step "Обновление панели управления..."
                 cd "${PANEL_DIR}" || exit
                 git pull
@@ -271,7 +309,7 @@ if [[ -d "$PANEL_DIR" && -f "${PANEL_DIR}/panel/data/config.json" ]]; then
                 log_ok "Панель обновлена!"
                 read -rp "Нажмите Enter для возврата..."
                 ;;
-            4)
+            5)
                 echo -e "\n${YELLOW}${BOLD}⚠ Начинаем полное удаление...${RESET}"
                 if command -v ufw >/dev/null; then
                     ufw delete allow 80/tcp >/dev/null 2>&1 || true
@@ -301,18 +339,15 @@ fi
 header
 echo -e "   ${BLUE}IP сервера: ${BOLD}${SERVER_IP}${RESET}\n"
 
-# --- БЕЗОПАСНОЕ ОПРЕДЕЛЕНИЕ ПОРТА SSH (До начала установки) ---
+# --- БЕЗОПАСНОЕ ОПРЕДЕЛЕНИЕ ПОРТА SSH ---
 echo -e "${BOLD}🛡 Защита доступа (UFW Firewall):${RESET}"
 DETECTED_SSH_PORT=""
-# 1. Сначала берем порт из активной сессии (железобетонно)
 if [[ -n "${SSH_CONNECTION:-}" ]]; then
     DETECTED_SSH_PORT=$(echo "$SSH_CONNECTION" | awk '{print $4}')
 fi
-# 2. Если не вышло, пробуем через ss
 if [[ -z "$DETECTED_SSH_PORT" || ! "$DETECTED_SSH_PORT" =~ ^[0-9]+$ ]]; then
     DETECTED_SSH_PORT=$(ss -tlnp 2>/dev/null | grep -m 1 -iE 'sshd|dropbear' | awk '{print $4}' | awk -F':' '{print $NF}')
 fi
-# 3. Дефолт
 if [[ -z "$DETECTED_SSH_PORT" || ! "$DETECTED_SSH_PORT" =~ ^[0-9]+$ ]]; then
     DETECTED_SSH_PORT=22
 fi
@@ -320,13 +355,11 @@ fi
 read -rp "  Подтвердите ваш SSH порт [$DETECTED_SSH_PORT]: " INPUT_SSH_PORT
 SSH_PORT=${INPUT_SSH_PORT:-$DETECTED_SSH_PORT}
 
-# Защита от кривого ввода
 if ! [[ "$SSH_PORT" =~ ^[0-9]+$ ]] || [ "$SSH_PORT" -lt 1 ] || [ "$SSH_PORT" -gt 65535 ]; then
     log_warn "Введен некорректный порт. Возвращаем дефолтный 22."
     SSH_PORT=22
 fi
 echo -e "  ${GREEN}✅ UFW откроет порт: ${SSH_PORT}${RESET}\n"
-# ----------------------------------------------------------------
 
 echo -e "${BOLD}Выберите способ доступа к панели управления:${RESET}"
 echo ""
@@ -342,8 +375,6 @@ PANEL_EMAIL_SSL=""
 
 if [[ "$ACCESS_MODE" == "2" ]]; then
   echo ""
-  
-  # УМНЫЙ ПОИСК СЕРТИФИКАТОВ ДЛЯ ПАНЕЛИ
   if [[ -d "/etc/letsencrypt/live" ]]; then
       DOMAINS_P=()
       for d in /etc/letsencrypt/live/*/; do
@@ -386,7 +417,6 @@ NAIVE_DOMAIN=""
 NAIVE_EMAIL=""
 NAIVE_TLS_CONFIG=""
 
-# УМНЫЙ ПОИСК СЕРТИФИКАТОВ ДЛЯ NAIVEPROXY
 if [[ -d "/etc/letsencrypt/live" ]]; then
     DOMAINS_N=()
     for d in /etc/letsencrypt/live/*/; do
@@ -422,7 +452,7 @@ fi
 if [[ -z "$NAIVE_DOMAIN" ]]; then
     read -rp "  Домен для NaiveProxy (например vpn.yourdomain.com): " NAIVE_DOMAIN
     read -rp "  Email для Let's Encrypt (TLS): " NAIVE_EMAIL
-    NAIVE_TLS_CONFIG="$NAIVE_EMAIL"
+    NAIVE_TLS_CONFIG="${NAIVE_EMAIL:-admin@$NAIVE_DOMAIN}"
 fi
 
 read -rp "  Название профиля для Karing/Throne (например: Main_Server): " FIRST_PROFILE_NAME
@@ -573,8 +603,7 @@ fi
 # Применяем подтвержденный SSH порт
 ufw allow "${SSH_PORT}/tcp" >/dev/null 2>&1 || true
 
-# Если порт нестандартный, на всякий случай всё равно открываем 22, 
-# чтобы точно не потерять доступ к серверу при ошибке
+# На всякий случай
 if [[ "$SSH_PORT" != "22" ]]; then
     ufw allow 22/tcp >/dev/null 2>&1 || true
 fi
