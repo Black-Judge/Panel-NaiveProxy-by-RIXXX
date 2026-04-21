@@ -3,14 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Panel NaiveProxy by RIXXX</title>
+  <title>Panel NaiveProxy by Veles</title>
   <link rel="stylesheet" href="/css/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 </head>
 <body>
 
-<!-- ═══════════════════════════════════════════ LOGIN PAGE ═══ -->
 <div id="loginPage" class="login-page hidden">
   <div class="login-bg">
     <div class="bg-orb orb-1"></div>
@@ -19,7 +18,6 @@
   </div>
   <div class="login-card">
     <div class="login-logo">
-      <!-- LOGO SLOT: замените src на свой логотип (PNG/SVG ~48x48px) -->
       <div class="logo-icon" id="logoIconEl">
         <img id="customLogoImg" src="/assets/logo.png" alt="Logo"
              style="width:36px;height:36px;object-fit:contain;border-radius:6px;"
@@ -40,7 +38,7 @@
       </div>
       <div>
         <div class="logo-title">NaiveProxy</div>
-        <div class="logo-sub">Panel by RIXXX</div>
+        <div class="logo-sub">Panel by Veles</div>
       </div>
     </div>
     <h2 class="login-heading">Добро пожаловать</h2>
@@ -49,11 +47,11 @@
     <form id="loginForm">
       <div class="form-group">
         <label class="form-label">Логин</label>
-        <input type="text" id="loginUsername" class="form-input" placeholder="admin" autocomplete="username">
+        <input type="text" id="loginUsername" class="form-input" placeholder="Логин" autocomplete="username" required>
       </div>
       <div class="form-group">
         <label class="form-label">Пароль</label>
-        <input type="password" id="loginPassword" class="form-input" placeholder="••••••••" autocomplete="current-password">
+        <input type="password" id="loginPassword" class="form-input" placeholder="••••••••" autocomplete="current-password" required>
       </div>
       <button type="submit" class="btn btn-shiny btn-full">
         <span class="btn-text">Войти</span>
@@ -64,17 +62,14 @@
         </span>
       </button>
     </form>
-    <div class="login-hint">По умолчанию: admin / admin</div>
+    <div class="login-hint">Данные для входа выдаются при установке скрипта</div>
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════ MAIN APP ═══ -->
 <div id="app" class="app hidden">
 
-  <!-- Sidebar -->
   <aside class="sidebar">
     <div class="sidebar-logo">
-      <!-- SIDEBAR LOGO SLOT -->
       <div class="logo-icon small">
         <img src="/assets/logo.png" alt="Logo"
              style="width:24px;height:24px;object-fit:contain;border-radius:4px;"
@@ -95,7 +90,7 @@
       </div>
       <div>
         <div class="sidebar-title">NaiveProxy</div>
-        <div class="sidebar-sub">by RIXXX</div>
+        <div class="sidebar-sub">by Veles</div>
       </div>
     </div>
 
@@ -120,22 +115,20 @@
 
     <div class="sidebar-bottom">
       <div class="user-info">
-        <div class="user-avatar" id="sidebarUserAvatar">A</div>
+        <div class="user-avatar" id="sidebarUserAvatar">V</div>
         <div>
           <div class="user-name" id="sidebarUsername">admin</div>
           <div class="user-role">Administrator</div>
         </div>
       </div>
-      <button class="btn-icon logout-btn" id="logoutBtn" title="Выйти">
+      <button class="btn-icon logout-btn" id="logoutBtn" title="Выйти" aria-label="Выйти">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       </button>
     </div>
   </aside>
 
-  <!-- Main Content -->
   <main class="main-content">
 
-    <!-- ────── DASHBOARD PAGE ────── -->
     <div class="page active" id="dashboardPage">
       <div class="page-header">
         <h1 class="page-title">Дашборд</h1>
@@ -230,7 +223,6 @@
       </div>
     </div>
 
-    <!-- ────── INSTALL PAGE ────── -->
     <div class="page" id="installPage">
       <div class="page-header">
         <h1 class="page-title">Установка NaiveProxy</h1>
@@ -251,21 +243,21 @@
                   Поддомен (домен)
                   <span class="form-hint">Должен указывать на IP этого сервера</span>
                 </label>
-                <input type="text" id="installDomain" class="form-input" placeholder="naive.yourdomain.com">
+                <input type="text" id="installDomain" class="form-input" placeholder="naive.yourdomain.com" required>
               </div>
               <div class="form-group">
                 <label class="form-label">
                   Email для Let's Encrypt
                   <span class="form-hint">Для получения SSL сертификата</span>
                 </label>
-                <input type="email" id="installEmail" class="form-input" placeholder="you@email.com">
+                <input type="email" id="installEmail" class="form-input" placeholder="you@email.com" required>
               </div>
               <div class="form-group">
                 <label class="form-label">
                   Логин прокси-пользователя
                   <span class="form-hint">Первый пользователь NaiveProxy</span>
                 </label>
-                <input type="text" id="installLogin" class="form-input" placeholder="mylogin">
+                <input type="text" id="installLogin" class="form-input" placeholder="mylogin" required>
               </div>
               <div class="form-group">
                 <label class="form-label">
@@ -273,9 +265,8 @@
                   <span class="form-hint">Минимум 8 символов</span>
                 </label>
                 <div class="input-group">
-                  <input type="text" id="installPassword" class="form-input" placeholder="Будет сгенерирован автоматически">
-                  <!-- ИСПРАВЛЕНО: иконка кубика (генерация) вместо скрепки -->
-                  <button type="button" class="btn btn-outline btn-gen" onclick="generatePassword()" title="Сгенерировать случайный пароль">
+                  <input type="text" id="installPassword" class="form-input" placeholder="Будет сгенерирован автоматически" required>
+                  <button type="button" class="btn btn-outline btn-gen" onclick="generatePassword()" aria-label="Сгенерировать случайный пароль" title="Сгенерировать случайный пароль">
                     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <rect x="2" y="2" width="20" height="20" rx="4"/>
                       <circle cx="8" cy="8" r="1.5" fill="currentColor" stroke="none"/>
@@ -298,7 +289,6 @@
           </div>
         </div>
 
-        <!-- Progress Panel -->
         <div class="card install-progress-card" id="installProgressCard">
           <div class="card-header">
             <h3 class="card-title">Прогресс установки</h3>
@@ -350,7 +340,6 @@
       </div>
     </div>
 
-    <!-- ────── USERS PAGE ────── -->
     <div class="page" id="usersPage">
       <div class="page-header">
         <h1 class="page-title">Прокси-пользователи</h1>
@@ -386,14 +375,12 @@
       </div>
     </div>
 
-    <!-- ────── SETTINGS PAGE ────── -->
     <div class="page" id="settingsPage">
       <div class="page-header">
         <h1 class="page-title">Настройки</h1>
       </div>
       <div class="settings-grid">
 
-        <!-- Смена пароля -->
         <div class="card">
           <div class="card-header">
             <h3 class="card-title">Смена пароля панели</h3>
@@ -402,21 +389,20 @@
             <div id="pwdChangeAlert" class="alert hidden"></div>
             <div class="form-group">
               <label class="form-label">Текущий пароль</label>
-              <input type="password" id="currentPwd" class="form-input" placeholder="••••••••" autocomplete="current-password">
+              <input type="password" id="currentPwd" class="form-input" placeholder="••••••••" autocomplete="current-password" required>
             </div>
             <div class="form-group">
               <label class="form-label">Новый пароль</label>
-              <input type="password" id="newPwd" class="form-input" placeholder="••••••••" autocomplete="new-password">
+              <input type="password" id="newPwd" class="form-input" placeholder="••••••••" autocomplete="new-password" required>
             </div>
             <div class="form-group">
               <label class="form-label">Подтвердите пароль</label>
-              <input type="password" id="confirmPwd" class="form-input" placeholder="••••••••" autocomplete="new-password">
+              <input type="password" id="confirmPwd" class="form-input" placeholder="••••••••" autocomplete="new-password" required>
             </div>
             <button class="btn btn-shiny" onclick="changePassword()">Сохранить пароль</button>
           </div>
         </div>
 
-        <!-- Информация о панели -->
         <div class="card">
           <div class="card-header">
             <h3 class="card-title">Информация о панели</h3>
@@ -429,7 +415,7 @@
               </div>
               <div class="info-row">
                 <span class="info-key">Автор</span>
-                <span class="info-val">RIXXX</span>
+                <span class="info-val">Veles</span>
               </div>
               <div class="info-row">
                 <span class="info-key">Стек</span>
@@ -437,11 +423,10 @@
               </div>
               <div class="info-row">
                 <span class="info-key">GitHub</span>
-                <a href="https://github.com/cwash797-cmd" target="_blank" class="info-val link">cwash797-cmd</a>
+                <a href="https://github.com/Black-Judge" target="_blank" class="info-val link">Black-Judge</a>
               </div>
             </div>
 
-            <!-- Поддержать автора + Telegram -->
             <div class="support-btns">
               <a href="https://app.lava.top/2107724612?tabId=donate" target="_blank" class="btn btn-shiny btn-full">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21C12 21 3 13.5 3 8a9 9 0 0 1 18 0c0 5.5-9 13-9 13z"/><circle cx="12" cy="8" r="2"/></svg>
@@ -457,20 +442,17 @@
           </div>
         </div>
 
-        <!-- Клиентские приложения — ОБНОВЛЕНО -->
         <div class="card settings-clients-card">
           <div class="card-header">
             <h3 class="card-title">Клиентские приложения</h3>
           </div>
           <div class="card-body">
             <div class="clients-list">
-              <!-- iOS -->
               <div class="client-item">
                 <div class="client-platform ios">iOS</div>
                 <div class="client-name">Karing</div>
                 <a class="client-link" href="https://apps.apple.com/app/karing/id6472431552" target="_blank">App Store ↗</a>
               </div>
-              <!-- Android -->
               <div class="client-item">
                 <div class="client-platform android">Android</div>
                 <div class="client-name">NekoBox</div>
@@ -481,7 +463,6 @@
                 <div class="client-name">Karing</div>
                 <a class="client-link" href="https://github.com/KaringX/karing/releases" target="_blank">GitHub ↗</a>
               </div>
-              <!-- Windows — Hiddify убран, добавлены Karing и v2rayN -->
               <div class="client-item">
                 <div class="client-platform windows">Windows</div>
                 <div class="client-name">Karing</div>
@@ -510,12 +491,11 @@
   </main>
 </div>
 
-<!-- ═══════════════════════════════ MODALS ═══ -->
 <div class="modal-overlay hidden" id="addUserModal">
   <div class="modal">
     <div class="modal-header">
       <h3>Добавить пользователя</h3>
-      <button class="modal-close" onclick="closeModal('addUserModal')">
+      <button class="modal-close" onclick="closeModal('addUserModal')" aria-label="Закрыть">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
@@ -523,13 +503,13 @@
       <div id="addUserAlert" class="alert hidden"></div>
       <div class="form-group">
         <label class="form-label">Логин</label>
-        <input type="text" id="newUserLogin" class="form-input" placeholder="username" autocomplete="off">
+        <input type="text" id="newUserLogin" class="form-input" placeholder="username" autocomplete="off" required>
       </div>
       <div class="form-group">
         <label class="form-label">Пароль</label>
         <div class="input-group">
-          <input type="text" id="newUserPassword" class="form-input" placeholder="password" autocomplete="off">
-          <button type="button" class="btn btn-outline btn-gen" onclick="generateUserPassword()" title="Сгенерировать пароль">
+          <input type="text" id="newUserPassword" class="form-input" placeholder="password" autocomplete="off" required>
+          <button type="button" class="btn btn-outline btn-gen" onclick="generateUserPassword()" aria-label="Сгенерировать пароль" title="Сгенерировать пароль">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="2" y="2" width="20" height="20" rx="4"/>
               <circle cx="8" cy="8" r="1.5" fill="currentColor" stroke="none"/>
@@ -553,7 +533,7 @@
   <div class="modal modal-sm">
     <div class="modal-header">
       <h3>Удалить пользователя</h3>
-      <button class="modal-close" onclick="closeModal('deleteUserModal')">
+      <button class="modal-close" onclick="closeModal('deleteUserModal')" aria-label="Закрыть">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
@@ -567,7 +547,6 @@
   </div>
 </div>
 
-<!-- Toast -->
 <div id="toast" class="toast hidden"></div>
 
 <script src="/js/app.js"></script>
