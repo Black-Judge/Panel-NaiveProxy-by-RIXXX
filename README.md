@@ -1,4 +1,4 @@
-# Panel NaiveProxy by RIXXX
+# Panel NaiveProxy by Veles
 
 > Веб-панель управления для быстрой установки и управления NaiveProxy на VPS
 
@@ -7,7 +7,7 @@
 ## 🚀 Быстрая установка панели
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/cwash797-cmd/Panel-NaiveProxy-by-RIXXX/main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Black-Judge/Panel-NaiveProxy-by-RIXXX/main/install.sh)
 ```
 
 После установки панель будет доступна по адресу:
