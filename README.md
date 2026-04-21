@@ -7,7 +7,7 @@
 ## 🚀 Быстрая установка панели
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Black-Judge/Panel-NaiveProxy-by-RIXXX/main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Black-Judge/Panel-NaiveProxy-by-Veles/main/install.sh)
 ```
 
 После установки панель будет доступна по адресу:
