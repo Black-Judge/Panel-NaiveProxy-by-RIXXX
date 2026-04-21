@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 
 // ─────────────────────────────────────────────
-// РУЧНОЙ ПАРСЕР .ENV (Для независимости от PM2)
+// РУЧНОЙ ПАРСЕР .ENV
 // ─────────────────────────────────────────────
 const envPath = path.join(__dirname, '../.env');
 if (fs.existsSync(envPath)) {
@@ -34,18 +34,12 @@ const USERS_FILE = path.join(__dirname, '../data/users.json');
 const dataDir = path.join(__dirname, '../data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-// 🛡 ГЛОБАЛЬНАЯ БРОНЯ ОТ ПАДЕНИЙ (Titanium Error Handling)
-process.on('uncaughtException', (err) => console.error('Критическая ошибка (перехвачена):', err));
-process.on('unhandledRejection', (err) => console.error('Необработанный промис (перехвачен):', err));
+process.on('uncaughtException', (err) => console.error('Критическая ошибка:', err));
+process.on('unhandledRejection', (err) => console.error('Необработанный промис:', err));
 
 function createDefaultConfig() {
   const defaultConfig = {
-    installed: false,
-    domain: '',
-    email: '',
-    serverIp: '',
-    adminPassword: '',
-    proxyUsers: []
+    installed: false, domain: '', email: '', serverIp: '', accessMode: '1', panelDomain: '', panelEmail: '', adminPassword: '', proxyUsers: []
   };
   try { fs.writeFileSync(DATA_FILE, JSON.stringify(defaultConfig, null, 2)); } catch(e){}
   return defaultConfig;
@@ -56,13 +50,9 @@ function loadConfig() {
   try {
     const cfg = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
     if (!cfg.proxyUsers) cfg.proxyUsers = [];
-    
-    // 🧹 САНИТАРНАЯ ОЧИСТКА: Удаляем все null, пустые строки и битые объекты
     cfg.proxyUsers = cfg.proxyUsers.filter(u => u && typeof u === 'object' && u.username);
-    
     return cfg;
   } catch (err) {
-    console.error('Файл config.json поврежден. Сбрасываем к дефолту.', err);
     return createDefaultConfig();
   }
 }
@@ -90,7 +80,6 @@ function loadUsers() {
   try {
     return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
   } catch (err) {
-    console.error('Файл users.json поврежден. Восстанавливаем из .env', err);
     return createDefaultUsers();
   }
 }
@@ -117,7 +106,7 @@ function requireAuth(req, res, next) {
 }
 
 // ─────────────────────────────────────────────
-//  AUTH ROUTES
+//  ROUTES
 // ─────────────────────────────────────────────
 app.post('/api/login', (req, res) => {
   try {
@@ -133,8 +122,7 @@ app.post('/api/login', (req, res) => {
     req.session.role = user.role;
     res.json({ success: true });
   } catch (e) {
-    console.error("Login error:", e);
-    res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера' });
+    res.status(500).json({ success: false, message: 'Ошибка сервера' });
   }
 });
 
@@ -147,9 +135,6 @@ app.get('/api/me', requireAuth, (req, res) => {
   res.json({ username: req.session.username, role: req.session.role });
 });
 
-// ─────────────────────────────────────────────
-//  CONFIG ROUTES
-// ─────────────────────────────────────────────
 app.get('/api/config', requireAuth, (req, res) => {
   const config = loadConfig();
   res.json({ ...config });
@@ -172,14 +157,10 @@ app.post('/api/config/change-password', requireAuth, (req, res) => {
     saveUsers(users);
     res.json({ success: true, message: 'Пароль успешно изменён' });
   } catch (e) {
-    console.error("Change pass error:", e);
-    res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера' });
+    res.status(500).json({ success: false, message: 'Ошибка сервера' });
   }
 });
 
-// ─────────────────────────────────────────────
-//  PROXY USERS ROUTES
-// ─────────────────────────────────────────────
 app.get('/api/proxy-users', requireAuth, (req, res) => {
   const config = loadConfig();
   res.json({ users: config.proxyUsers || [] });
@@ -196,25 +177,19 @@ app.post('/api/proxy-users/add', requireAuth, (req, res) => {
     }
     
     let safeProfile = profileName ? profileName.replace(/ /g, '_') : `Naive_${username}`;
-    config.proxyUsers.push({ 
-      username, 
-      password, 
-      profileName: safeProfile,
-      createdAt: new Date().toISOString() 
-    });
+    config.proxyUsers.push({ username, password, profileName: safeProfile, createdAt: new Date().toISOString() });
     
     saveConfig(config);
     
     if (config.installed) {
-      updateCaddyfile(config, res, () => {
+      updateCaddyfile(config, () => {
         res.json({ success: true, link: `naive+https://${username}:${password}@${config.domain}:443#${encodeURIComponent(safeProfile)}` });
       });
     } else {
       res.json({ success: true, link: username + ':' + password });
     }
   } catch (e) {
-    console.error("Add user error:", e);
-    res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера' });
+    res.status(500).json({ success: false, message: 'Ошибка сервера' });
   }
 });
 
@@ -223,7 +198,6 @@ app.delete('/api/proxy-users/:username', requireAuth, (req, res) => {
     const { username } = req.params;
     const config = loadConfig();
     const before = config.proxyUsers.length;
-    
     config.proxyUsers = config.proxyUsers.filter(u => u.username !== username);
     
     if (config.proxyUsers.length === before) {
@@ -233,21 +207,17 @@ app.delete('/api/proxy-users/:username', requireAuth, (req, res) => {
     saveConfig(config);
     
     if (config.installed) {
-      updateCaddyfile(config, res, () => {
+      updateCaddyfile(config, () => {
         res.json({ success: true });
       });
     } else {
       res.json({ success: true });
     }
   } catch (e) {
-    console.error("Delete user error:", e);
-    res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера' });
+    res.status(500).json({ success: false, message: 'Ошибка сервера' });
   }
 });
 
-// ─────────────────────────────────────────────
-//  SERVER STATUS
-// ─────────────────────────────────────────────
 app.get('/api/status', requireAuth, (req, res) => {
   try {
     const config = loadConfig();
@@ -265,34 +235,28 @@ app.get('/api/status', requireAuth, (req, res) => {
       });
     });
   } catch (e) {
-    res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера' });
+    res.status(500).json({ success: false, message: 'Ошибка сервера' });
   }
 });
 
 app.post('/api/service/:action', requireAuth, (req, res) => {
   try {
     const { action } = req.params;
-    if (!['start', 'stop', 'restart'].includes(action)) {
-      return res.status(400).json({ error: 'Invalid action' });
-    }
+    if (!['start', 'stop', 'restart'].includes(action)) return res.status(400).json({ error: 'Invalid action' });
     
     exec(`systemctl ${action} caddy`, (error, stdout, stderr) => {
-      if (error) {
-        console.error(`[Systemctl Error]: ${stderr || error.message}`);
-        res.json({ success: false, message: `Ошибка выполнения: ${action}` });
-      } else {
-        res.json({ success: true, message: `Команда ${action} успешно выполнена` });
-      }
+      if (error) res.json({ success: false, message: `Ошибка выполнения: ${action}` });
+      else res.json({ success: true, message: `Команда ${action} успешно выполнена` });
     });
   } catch (e) {
-    res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера' });
+    res.status(500).json({ success: false, message: 'Ошибка сервера' });
   }
 });
 
 // ─────────────────────────────────────────────
-//  CADDY UPDATE HELPER
+//  ИСПРАВЛЕННЫЙ УМНЫЙ ГЕНЕРАТОР CADDYFILE
 // ─────────────────────────────────────────────
-function updateCaddyfile(config, res, callback) {
+function updateCaddyfile(config, callback) {
   let basicAuthLines = '';
   if (config.proxyUsers && config.proxyUsers.length > 0) {
     basicAuthLines = config.proxyUsers
@@ -301,12 +265,23 @@ function updateCaddyfile(config, res, callback) {
       .join('\n');
   }
 
-  const caddyfileContent = `{
+  // 1. Умный выбор сертификатов для ядра NaiveProxy
+  let tlsLine = `tls ${config.email}`;
+  const certPath = `/etc/letsencrypt/live/${config.domain}/fullchain.pem`;
+  const keyPath = `/etc/letsencrypt/live/${config.domain}/privkey.pem`;
+  
+  if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
+    tlsLine = `tls ${certPath} ${keyPath}`;
+  } else if (!config.email) {
+    tlsLine = `tls internal`; // Защита от падения, если email пустой
+  }
+
+  let caddyfileContent = `{
   order forward_proxy before file_server
 }
 
 :443, ${config.domain} {
-  tls ${config.email}
+  ${tlsLine}
 
   forward_proxy {
 ${basicAuthLines}
@@ -321,6 +296,21 @@ ${basicAuthLines}
 }
 `;
 
+  // 2. ВОССТАНОВЛЕНИЕ БЛОКА ПАНЕЛИ (Если включен доступ через Caddy)
+  if (config.accessMode === "2" && config.panelDomain) {
+    let pTlsLine = `tls ${config.panelEmail}`;
+    const pCertPath = `/etc/letsencrypt/live/${config.panelDomain}/fullchain.pem`;
+    const pKeyPath = `/etc/letsencrypt/live/${config.panelDomain}/privkey.pem`;
+
+    if (fs.existsSync(pCertPath) && fs.existsSync(pKeyPath)) {
+      pTlsLine = `tls ${pCertPath} ${pKeyPath}`;
+    } else if (!config.panelEmail) {
+      pTlsLine = `tls internal`;
+    }
+
+    caddyfileContent += `\n${config.panelDomain} {\n  ${pTlsLine}\n  reverse_proxy 127.0.0.1:${process.env.PORT || 3000}\n}\n`;
+  }
+
   try {
     fs.writeFileSync('/etc/caddy/Caddyfile', caddyfileContent, 'utf8');
   } catch (e) {
@@ -328,7 +318,6 @@ ${basicAuthLines}
   }
 
   exec('systemctl reload-or-restart caddy', (error) => {
-    if (error) console.error("Ошибка применения конфига Caddy:", error);
     if (callback) callback();
   });
 }
