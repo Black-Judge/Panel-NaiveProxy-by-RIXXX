@@ -6,8 +6,6 @@
 
 // ─── STATE ───────────────────────────────────────
 let currentPage = 'dashboard';
-let ws = null;
-let installRunning = false;
 let deleteUserTarget = null;
 let currentConfig = null;
 
@@ -61,7 +59,6 @@ function showLogin() {
 function showApp(username) {
   document.getElementById('loginPage').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
-  // Set username in sidebar
   if (username) {
     document.getElementById('sidebarUsername').textContent = username;
     document.getElementById('sidebarUserAvatar').textContent = username[0].toUpperCase();
@@ -175,7 +172,9 @@ async function loadDashboard() {
         quickLinksList.classList.remove('hidden');
         quickLinksList.innerHTML = '';
         usersData.users.slice(0, 5).forEach(u => {
-          const link = `naive+https://${u.username}:${u.password}@${data.domain}:443`;
+          // ИСПОЛЬЗУЕМ ИМЯ ПРОФИЛЯ ДЛЯ ССЫЛКИ
+          const profName = u.profileName || `Naive_${u.username}`;
+          const link = `naive+https://${u.username}:${u.password}@${data.domain}:443#${encodeURIComponent(profName)}`;
           quickLinksList.innerHTML += `
             <div class="quick-link-item">
               <span style="min-width:70px;color:var(--text-primary);font-weight:600">${u.username}</span>
@@ -205,180 +204,6 @@ async function serviceAction(action) {
   }
 }
 
-// ─── INSTALL ──────────────────────────────────────
-function generatePassword() {
-  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789@#$';
-  let pwd = '';
-  for (let i = 0; i < 20; i++) {
-    pwd += chars[Math.floor(Math.random() * chars.length)];
-  }
-  document.getElementById('installPassword').value = pwd;
-}
-
-// Auto-generate password on install page load if empty
-document.addEventListener('DOMContentLoaded', () => {
-  generatePassword();
-});
-
-function startInstall() {
-  if (installRunning) return;
-
-  const domain = document.getElementById('installDomain').value.trim();
-  const email = document.getElementById('installEmail').value.trim();
-  const login = document.getElementById('installLogin').value.trim();
-  const password = document.getElementById('installPassword').value.trim();
-  const alertEl = document.getElementById('installAlert');
-
-  if (!domain || !email || !login || !password) {
-    showAlert(alertEl, '❌ Заполните все поля', 'error');
-    return;
-  }
-  if (!domain.includes('.')) {
-    showAlert(alertEl, '❌ Введите корректный домен (например: naive.yourdomain.com)', 'error');
-    return;
-  }
-  if (!email.includes('@')) {
-    showAlert(alertEl, '❌ Введите корректный email', 'error');
-    return;
-  }
-  if (password.length < 8) {
-    showAlert(alertEl, '❌ Пароль должен быть минимум 8 символов', 'error');
-    return;
-  }
-
-  alertEl.classList.add('hidden');
-  installRunning = true;
-
-  // UI: show progress, hide done
-  document.getElementById('installDone').classList.add('hidden');
-  document.getElementById('installLog').innerHTML = '';
-  document.getElementById('progressBar').style.width = '0%';
-  document.getElementById('progressPercent').textContent = '0%';
-
-  // Reset steps
-  document.querySelectorAll('.install-step').forEach(s => {
-    s.classList.remove('active', 'done');
-  });
-
-  // Disable button
-  const btn = document.getElementById('startInstallBtn');
-  btn.disabled = true;
-  btn.innerHTML = `
-    <svg class="spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-    </svg>
-    Установка...`;
-
-  // Connect WebSocket
-  const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  ws = new WebSocket(`${wsProto}//${location.host}`);
-
-  ws.onopen = () => {
-    ws.send(JSON.stringify({
-      type: 'install',
-      domain, email,
-      adminLogin: login,
-      adminPassword: password
-    }));
-  };
-
-  ws.onmessage = (event) => {
-    const msg = JSON.parse(event.data);
-    handleWsMessage(msg);
-  };
-
-  ws.onerror = () => {
-    appendLog('❌ Ошибка WebSocket соединения', 'error');
-    resetInstallBtn();
-  };
-
-  ws.onclose = () => {
-    if (installRunning) {
-      installRunning = false;
-    }
-  };
-}
-
-function handleWsMessage(msg) {
-  if (msg.type === 'log') {
-    appendLog(msg.text, msg.level);
-    if (msg.step) activateStep(msg.step);
-    if (msg.progress !== null && msg.progress !== undefined) {
-      setProgress(msg.progress);
-    }
-  } else if (msg.type === 'install_done') {
-    installRunning = false;
-    setProgress(100);
-    markStepDone('done');
-    showInstallDone(msg.link);
-    resetInstallBtn();
-  } else if (msg.type === 'install_error') {
-    installRunning = false;
-    appendLog(`❌ ${msg.message}`, 'error');
-    resetInstallBtn();
-    showAlert(document.getElementById('installAlert'), `Ошибка установки: ${msg.message}`, 'error');
-  }
-}
-
-function appendLog(text, level = 'info') {
-  const terminal = document.getElementById('installLog');
-  const line = document.createElement('div');
-  line.className = `log-line log-${level}`;
-  line.textContent = `› ${text}`;
-  terminal.appendChild(line);
-  terminal.scrollTop = terminal.scrollHeight;
-}
-
-function setProgress(pct) {
-  document.getElementById('progressBar').style.width = pct + '%';
-  document.getElementById('progressPercent').textContent = pct + '%';
-}
-
-let currentActiveStep = null;
-function activateStep(stepName) {
-  if (currentActiveStep && currentActiveStep !== stepName) {
-    markStepDone(currentActiveStep);
-  }
-  const el = document.getElementById('step-' + stepName);
-  if (el) {
-    el.classList.add('active');
-    el.classList.remove('done');
-    currentActiveStep = stepName;
-  }
-}
-
-function markStepDone(stepName) {
-  const el = document.getElementById('step-' + stepName);
-  if (el) {
-    el.classList.remove('active');
-    el.classList.add('done');
-  }
-}
-
-function showInstallDone(link) {
-  document.getElementById('doneLink').textContent = link || '';
-  document.getElementById('installDone').classList.remove('hidden');
-  // Mark all steps done
-  document.querySelectorAll('.install-step').forEach(s => {
-    s.classList.remove('active');
-    s.classList.add('done');
-  });
-  showToast('✅ NaiveProxy успешно установлен!', 'success');
-}
-
-function copyLink() {
-  const link = document.getElementById('doneLink').textContent;
-  copyText(link);
-}
-
-function resetInstallBtn() {
-  const btn = document.getElementById('startInstallBtn');
-  btn.disabled = false;
-  btn.innerHTML = `
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
-    Начать установку`;
-}
-
 // ─── USERS ───────────────────────────────────────
 async function loadUsers() {
   const tbody = document.getElementById('usersTableBody');
@@ -404,14 +229,20 @@ async function loadUsers() {
     tbody.innerHTML = '';
 
     users.forEach((u, i) => {
+      // ИСПОЛЬЗУЕМ ИМЯ ПРОФИЛЯ
+      const profName = u.profileName || `Naive_${u.username}`;
       const link = status.installed && status.domain
-        ? `naive+https://${u.username}:${u.password}@${status.domain}:443`
+        ? `naive+https://${u.username}:${u.password}@${status.domain}:443#${encodeURIComponent(profName)}`
         : `(установите сервер)`;
       const date = u.createdAt ? new Date(u.createdAt).toLocaleDateString('ru') : '—';
+      
+      // Показываем имя профиля под логином
+      const loginHtml = `<div>${escapeHtml(u.username)}</div><div style="font-size:0.8em;color:var(--text-muted);margin-top:2px;">#${escapeHtml(profName)}</div>`;
+
       tbody.innerHTML += `
         <tr>
           <td>${i + 1}</td>
-          <td class="td-login">${escapeHtml(u.username)}</td>
+          <td class="td-login">${loginHtml}</td>
           <td class="td-pwd">${escapeHtml(u.password)}</td>
           <td class="td-link" title="${escapeHtml(link)}">
             ${status.installed ? `<span style="cursor:pointer" onclick="copyText('${escapeHtml(link)}')" title="Нажмите для копирования">${escapeHtml(link)}</span>` : '<span style="color:var(--text-muted)">Сервер не установлен</span>'}
@@ -433,6 +264,7 @@ async function loadUsers() {
 }
 
 function showAddUserModal() {
+  document.getElementById('newUserProfile').value = '';
   document.getElementById('newUserLogin').value = '';
   generateUserPassword();
   document.getElementById('addUserAlert').classList.add('hidden');
@@ -447,12 +279,13 @@ function generateUserPassword() {
 }
 
 async function addUser() {
+  const profileName = document.getElementById('newUserProfile').value.trim();
   const username = document.getElementById('newUserLogin').value.trim();
   const password = document.getElementById('newUserPassword').value.trim();
   const alertEl = document.getElementById('addUserAlert');
 
-  if (!username || !password) {
-    showAlert(alertEl, 'Введите логин и пароль', 'error');
+  if (!username || !password || !profileName) {
+    showAlert(alertEl, 'Заполните все поля', 'error');
     return;
   }
 
@@ -460,7 +293,7 @@ async function addUser() {
     const res = await fetch('/api/proxy-users/add', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify({ username, password, profileName }) // Передаем profileName на сервер
     });
     const data = await res.json();
     if (data.success) {
@@ -548,7 +381,6 @@ function closeModal(id) {
   document.getElementById(id).classList.add('hidden');
 }
 
-// Close modal on backdrop click
 document.querySelectorAll('.modal-overlay').forEach(overlay => {
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) {
@@ -589,7 +421,6 @@ let toastTimer = null;
 let toastFadeTimer = null;
 function showToast(message, type = 'info') {
   const toast = document.getElementById('toast');
-  // Reset any pending fade
   if (toastTimer) clearTimeout(toastTimer);
   if (toastFadeTimer) clearTimeout(toastFadeTimer);
   toast.classList.remove('hidden');

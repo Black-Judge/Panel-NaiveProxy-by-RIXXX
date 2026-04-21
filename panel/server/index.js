@@ -4,8 +4,7 @@ const bcrypt = require('bcryptjs');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const http = require('http');
-const WebSocket = require('ws');
-const { spawn, exec } = require('child_process'); // Добавлен exec для надежной работы с systemd
+const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
@@ -25,7 +24,6 @@ if (fs.existsSync(envPath)) {
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
 
 const PORT = process.env.PORT || 3000;
 const DATA_FILE = path.join(__dirname, '../data/config.json');
@@ -162,7 +160,9 @@ app.get('/api/proxy-users', requireAuth, (req, res) => {
 });
 
 app.post('/api/proxy-users/add', requireAuth, (req, res) => {
-  const { username, password } = req.body;
+  // ПРИНИМАЕМ ИМЯ ПРОФИЛЯ
+  const { username, password, profileName } = req.body;
+  
   if (!username || !password) {
     return res.json({ success: false, message: 'Логин и пароль обязательны' });
   }
@@ -173,12 +173,21 @@ app.post('/api/proxy-users/add', requireAuth, (req, res) => {
     return res.json({ success: false, message: 'Пользователь уже существует' });
   }
   
-  config.proxyUsers.push({ username, password, createdAt: new Date().toISOString() });
+  // Если профиль пустой - ставим дефолт. Иначе заменяем пробелы на безопасные
+  let safeProfile = profileName ? profileName.replace(/ /g, '_') : `Naive_${username}`;
+
+  // СОХРАНЯЕМ ИМЯ ПРОФИЛЯ В БАЗУ
+  config.proxyUsers.push({ 
+    username, 
+    password, 
+    profileName: safeProfile,
+    createdAt: new Date().toISOString() 
+  });
   saveConfig(config);
   
   if (config.installed) {
     updateCaddyfile(config, res, () => {
-      res.json({ success: true, link: `naive+https://${username}:${password}@${config.domain}:443` });
+      res.json({ success: true, link: `naive+https://${username}:${password}@${config.domain}:443#${encodeURIComponent(safeProfile)}` });
     });
   } else {
     res.json({ success: true, link: username + ':' + password });
@@ -205,7 +214,7 @@ app.delete('/api/proxy-users/:username', requireAuth, (req, res) => {
 });
 
 // ─────────────────────────────────────────────
-//  SERVER STATUS (ИСПОЛЬЗУЕТСЯ НАДЕЖНЫЙ EXEC)
+//  SERVER STATUS
 // ─────────────────────────────────────────────
 app.get('/api/status', requireAuth, (req, res) => {
   const config = loadConfig();
@@ -229,7 +238,6 @@ app.get('/api/status', requireAuth, (req, res) => {
 app.post('/api/service/:action', requireAuth, (req, res) => {
   const { action } = req.params;
   
-  // Жесткая валидация для защиты от Command Injection
   if (!['start', 'stop', 'restart'].includes(action)) {
     return res.status(400).json({ error: 'Invalid action' });
   }
@@ -245,25 +253,8 @@ app.post('/api/service/:action', requireAuth, (req, res) => {
 });
 
 // ─────────────────────────────────────────────
-//  INSTALL VIA WEBSOCKET
+//  CADDY UPDATE HELPER
 // ─────────────────────────────────────────────
-wss.on('connection', (ws, req) => {
-  ws.on('message', (message) => {
-    try {
-      const data = JSON.parse(message);
-      if (data.type === 'install') {
-        handleInstall(ws, data);
-      }
-    } catch (e) {
-      ws.send(JSON.stringify({ type: 'error', message: 'Invalid message' }));
-    }
-  });
-});
-
-function sendLog(ws, text, step = null, progress = null, level = 'info') {
-  ws.send(JSON.stringify({ type: 'log', text, step, progress, level }));
-}
-
 function updateCaddyfile(config, res, callback) {
   let basicAuthLines = '';
   if (config.proxyUsers && config.proxyUsers.length > 0) {
@@ -298,127 +289,10 @@ ${basicAuthLines}
     console.error("Ошибка записи Caddyfile:", e);
   }
 
-  // Надежная перезагрузка конфига через systemd
   exec('systemctl reload-or-restart caddy', (error) => {
     if (error) console.error("Ошибка применения конфига Caddy:", error);
     if (callback) callback();
   });
-}
-
-function handleInstall(ws, data) {
-  const { domain, email, adminLogin, adminPassword } = data;
-
-  if (!domain || !email || !adminLogin || !adminPassword) {
-    sendLog(ws, '❌ Заполните все поля!', null, null, 'error');
-    ws.send(JSON.stringify({ type: 'install_error', message: 'Заполните все поля' }));
-    return;
-  }
-
-  const config = loadConfig();
-  config.domain = domain;
-  config.email = email;
-  if (!config.proxyUsers) config.proxyUsers = [];
-  
-  const existingUser = config.proxyUsers.find(u => u.username === adminLogin);
-  if (!existingUser) {
-    config.proxyUsers.push({ username: adminLogin, password: adminPassword, createdAt: new Date().toISOString() });
-  }
-  saveConfig(config);
-
-  exec("curl -4 -s --max-time 3 ipv4.icanhazip.com 2>/dev/null || hostname -I | awk '{print $1}'", (err, stdout) => {
-    config.serverIp = stdout.trim();
-    saveConfig(config);
-  });
-
-  const scriptPath = path.join(__dirname, '../scripts/install_naiveproxy.sh');
-  
-  if (!fs.existsSync(scriptPath)) {
-    sendLog(ws, '❌ Скрипт установки не найден!', null, null, 'error');
-    ws.send(JSON.stringify({ type: 'install_error', message: 'install_naiveproxy.sh не найден' }));
-    return;
-  }
-
-  sendLog(ws, '🚀 Начинаем установку NaiveProxy...', 'init', 2, 'info');
-
-  const env = {
-    ...process.env,
-    NAIVE_DOMAIN: domain,
-    NAIVE_EMAIL: email,
-    NAIVE_LOGIN: adminLogin,
-    NAIVE_PASSWORD: adminPassword,
-    DEBIAN_FRONTEND: 'noninteractive'
-  };
-
-  const install = spawn('bash', [scriptPath], { env });
-
-  install.stdout.on('data', (data) => {
-    const lines = data.toString().split('\n').filter(l => l.trim());
-    lines.forEach(line => {
-      const parsed = parseLogLine(line);
-      sendLog(ws, parsed.text, parsed.step, parsed.progress, parsed.level);
-    });
-  });
-
-  install.stderr.on('data', (data) => {
-    const lines = data.toString().split('\n').filter(l => l.trim());
-    lines.forEach(line => {
-      if (!line.includes('WARNING') && line.trim()) {
-        sendLog(ws, line, null, null, 'warn');
-      }
-    });
-  });
-
-  install.on('close', (code) => {
-    if (code === 0) {
-      config.installed = true;
-      saveConfig(config);
-      sendLog(ws, '✅ Установка завершена успешно!', 'done', 100, 'success');
-      ws.send(JSON.stringify({
-        type: 'install_done',
-        link: `naive+https://${adminLogin}:${adminPassword}@${domain}:443`
-      }));
-    } else {
-      sendLog(ws, `❌ Установка завершилась с ошибкой (код ${code})`, null, null, 'error');
-      ws.send(JSON.stringify({ type: 'install_error', message: `Exit code: ${code}` }));
-    }
-  });
-
-  install.on('error', (err) => {
-    sendLog(ws, `❌ Ошибка запуска скрипта: ${err.message}`, null, null, 'error');
-    ws.send(JSON.stringify({ type: 'install_error', message: err.message }));
-  });
-}
-
-function parseLogLine(line) {
-  const stepMap = [
-    { pattern: /STEP:1/, step: 'update', progress: 10, text: '📦 Обновление системы и зависимостей...' },
-    { pattern: /STEP:2/, step: 'bbr', progress: 18, text: '⚡ Включение BBR...' },
-    { pattern: /STEP:3/, step: 'firewall', progress: 25, text: '🔥 Настройка файрволла...' },
-    { pattern: /STEP:4/, step: 'golang', progress: 35, text: '🐹 Установка Go...' },
-    { pattern: /STEP:5/, step: 'caddy', progress: 55, text: '🔨 Сборка Caddy с naive-плагином (это займёт 3-7 мин)...' },
-    { pattern: /STEP:6/, step: 'caddyfile', progress: 70, text: '📝 Создание конфигурации...' },
-    { pattern: /STEP:7/, step: 'service', progress: 80, text: '⚙️ Настройка systemd сервиса...' },
-    { pattern: /STEP:8/, step: 'start', progress: 90, text: '🟢 Запуск и включение автостарта...' },
-    { pattern: /STEP:DONE/, step: 'done', progress: 100, text: '✅ Готово!' },
-  ];
-
-  for (const s of stepMap) {
-    if (s.pattern.test(line)) {
-      return { text: s.text, step: s.step, progress: s.progress, level: 'step' };
-    }
-  }
-
-  if (/error|ошибка|failed|fail/i.test(line)) {
-    return { text: line, step: null, progress: null, level: 'error' };
-  }
-  if (/warn|warning/i.test(line)) {
-    return { text: line, step: null, progress: null, level: 'warn' };
-  }
-  if (/ok|done|success|✅|✓/i.test(line)) {
-    return { text: line, step: null, progress: null, level: 'success' };
-  }
-
-  return { text: line, step: null, progress: null, level: 'info' };
 }
 
 // Serve index for all non-api routes (SPA)

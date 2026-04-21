@@ -99,10 +99,6 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
         <span>Дашборд</span>
       </a>
-      <a href="#" class="nav-item" data-page="install">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
-        <span>Установка</span>
-      </a>
       <a href="#" class="nav-item" data-page="users">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         <span>Пользователи</span>
@@ -188,8 +184,7 @@
             <div class="service-controls" id="serviceControlsSection">
               <div class="not-installed-msg hidden" id="notInstalledMsg">
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                <p>NaiveProxy ещё не установлен.</p>
-                <button class="btn btn-shiny" onclick="goToPage('install')">Перейти к установке</button>
+                <p>NaiveProxy поврежден или не установлен.<br>Пожалуйста, выполните установку через консоль сервера.</p>
               </div>
               <div class="service-btns" id="serviceBtns">
                 <button class="btn btn-success" onclick="serviceAction('start')">
@@ -215,126 +210,9 @@
           </div>
           <div class="card-body" id="quickLinks">
             <div class="quick-link-empty" id="quickLinksEmpty">
-              <p>Установите NaiveProxy для получения ссылок</p>
+              <p>Нет пользователей для отображения</p>
             </div>
             <div id="quickLinksList" class="hidden"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="page" id="installPage">
-      <div class="page-header">
-        <h1 class="page-title">Установка NaiveProxy</h1>
-      </div>
-
-      <div class="install-layout">
-        <div class="card install-form-card" id="installFormCard">
-          <div class="card-header">
-            <h3 class="card-title">Параметры сервера</h3>
-            <div class="card-badge">Шаг 1 из 1</div>
-          </div>
-          <div class="card-body">
-            <div id="installAlert" class="alert hidden"></div>
-
-            <div class="form-grid">
-              <div class="form-group">
-                <label class="form-label">
-                  Поддомен (домен)
-                  <span class="form-hint">Должен указывать на IP этого сервера</span>
-                </label>
-                <input type="text" id="installDomain" class="form-input" placeholder="naive.yourdomain.com" required>
-              </div>
-              <div class="form-group">
-                <label class="form-label">
-                  Email для Let's Encrypt
-                  <span class="form-hint">Для получения SSL сертификата</span>
-                </label>
-                <input type="email" id="installEmail" class="form-input" placeholder="you@email.com" required>
-              </div>
-              <div class="form-group">
-                <label class="form-label">
-                  Логин прокси-пользователя
-                  <span class="form-hint">Первый пользователь NaiveProxy</span>
-                </label>
-                <input type="text" id="installLogin" class="form-input" placeholder="mylogin" required>
-              </div>
-              <div class="form-group">
-                <label class="form-label">
-                  Пароль прокси-пользователя
-                  <span class="form-hint">Минимум 8 символов</span>
-                </label>
-                <div class="input-group">
-                  <input type="text" id="installPassword" class="form-input" placeholder="Будет сгенерирован автоматически" required>
-                  <button type="button" class="btn btn-outline btn-gen" onclick="generatePassword()" aria-label="Сгенерировать случайный пароль" title="Сгенерировать случайный пароль">
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <rect x="2" y="2" width="20" height="20" rx="4"/>
-                      <circle cx="8" cy="8" r="1.5" fill="currentColor" stroke="none"/>
-                      <circle cx="16" cy="8" r="1.5" fill="currentColor" stroke="none"/>
-                      <circle cx="8" cy="16" r="1.5" fill="currentColor" stroke="none"/>
-                      <circle cx="16" cy="16" r="1.5" fill="currentColor" stroke="none"/>
-                      <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div class="form-actions">
-              <button class="btn btn-shiny btn-lg" id="startInstallBtn" onclick="startInstall()">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
-                Начать установку
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="card install-progress-card" id="installProgressCard">
-          <div class="card-header">
-            <h3 class="card-title">Прогресс установки</h3>
-            <div class="progress-percent" id="progressPercent">0%</div>
-          </div>
-          <div class="card-body">
-            <div class="progress-bar-wrap">
-              <div class="progress-bar" id="progressBar" style="width: 0%"></div>
-            </div>
-            <div class="install-steps">
-              <div class="install-step" id="step-init" data-step="init"><div class="step-dot"></div><div class="step-label">Инициализация</div></div>
-              <div class="install-step" id="step-update" data-step="update"><div class="step-dot"></div><div class="step-label">Обновление системы</div></div>
-              <div class="install-step" id="step-bbr" data-step="bbr"><div class="step-dot"></div><div class="step-label">Включение BBR</div></div>
-              <div class="install-step" id="step-firewall" data-step="firewall"><div class="step-dot"></div><div class="step-label">Настройка файрволла</div></div>
-              <div class="install-step" id="step-golang" data-step="golang"><div class="step-dot"></div><div class="step-label">Установка Go</div></div>
-              <div class="install-step" id="step-caddy" data-step="caddy"><div class="step-dot"></div><div class="step-label">Сборка Caddy (3-7 мин)</div></div>
-              <div class="install-step" id="step-caddyfile" data-step="caddyfile"><div class="step-dot"></div><div class="step-label">Конфигурация</div></div>
-              <div class="install-step" id="step-service" data-step="service"><div class="step-dot"></div><div class="step-label">Настройка сервиса</div></div>
-              <div class="install-step" id="step-start" data-step="start"><div class="step-dot"></div><div class="step-label">Запуск</div></div>
-              <div class="install-step" id="step-done" data-step="done"><div class="step-dot"></div><div class="step-label">Готово!</div></div>
-            </div>
-
-            <div class="terminal-wrap">
-              <div class="terminal-header">
-                <span class="terminal-dot red"></span>
-                <span class="terminal-dot yellow"></span>
-                <span class="terminal-dot green"></span>
-                <span class="terminal-title">Лог установки</span>
-              </div>
-              <div class="terminal" id="installLog"></div>
-            </div>
-
-            <div class="install-done hidden" id="installDone">
-              <div class="done-icon">✅</div>
-              <h3>Установка завершена!</h3>
-              <p>NaiveProxy успешно настроен и запущен</p>
-              <div class="done-link-wrap">
-                <div class="form-label">Ваша ссылка для подключения:</div>
-                <div class="done-link" id="doneLink"></div>
-                <button class="btn btn-outline btn-sm" onclick="copyLink()">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                  Копировать
-                </button>
-              </div>
-              <button class="btn btn-shiny" onclick="goToPage('dashboard')">Перейти на дашборд</button>
-            </div>
           </div>
         </div>
       </div>
@@ -411,7 +289,7 @@
             <div class="info-rows">
               <div class="info-row">
                 <span class="info-key">Версия</span>
-                <span class="info-val">1.0.0</span>
+                <span class="info-val">1.1.0 PRO</span>
               </div>
               <div class="info-row">
                 <span class="info-key">Автор</span>
@@ -480,7 +358,7 @@
               </div>
             </div>
             <div class="client-note">
-              Формат ссылки: <code>naive+https://LOGIN:PASSWORD@domain.com:443</code>
+              Формат ссылки: <code>naive+https://LOGIN:PASSWORD@domain.com:443#ProfileName</code>
             </div>
           </div>
         </div>
@@ -501,6 +379,12 @@
     </div>
     <div class="modal-body">
       <div id="addUserAlert" class="alert hidden"></div>
+      
+      <div class="form-group">
+        <label class="form-label">Название профиля <span class="form-hint" style="opacity:0.6;font-size:0.85em;font-weight:normal">(Для клиента)</span></label>
+        <input type="text" id="newUserProfile" class="form-input" placeholder="Например: My_Phone" autocomplete="off" required>
+      </div>
+
       <div class="form-group">
         <label class="form-label">Логин</label>
         <input type="text" id="newUserLogin" class="form-input" placeholder="username" autocomplete="off" required>
